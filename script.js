@@ -31,70 +31,6 @@ const PACMAN_MAZE = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
-// const PACMAN_MAZE = [
-//     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-//     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-//     [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2],
-//     [3, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3],
-//     [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2],
-//     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-//     [2, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 2],
-//     [2, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 2],
-//     [2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 4, 4, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 4, 4, 4, 4, 4, 4, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [1, 1, 1, 1, 1, 2, 1, 1, 1, 0, 4, 4, 4, 4, 4, 4, 0, 1, 1, 1, 2, 1, 1, 1, 1, 1],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [0, 0, 0, 0, 0, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 2, 0, 0, 0, 0, 0],
-//     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-//     [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2],
-//     [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2],
-//     [3, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 3],
-//     [0, 0, 2, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 2, 0, 0],
-//     [0, 0, 2, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 2, 0, 0],
-//     [2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2],
-//     [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-//     [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-//     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-//     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-// ];
-
-// document.addEventListener('DOMContentLoaded', () => {
-//     const mazeGrid = document.getElementById('maze-grid');
-
-//     // Cell value to CSS class mapping
-//     const cellClasses = {
-//         0: 'wall',         // Wall
-//         1: 'path',         // Empty Path
-//         2: 'pellet',       // Regular Pellet (dot)
-//         3: 'power-pellet', // Power Pellet
-//         4: 'ghost-cage',   // Ghost Start/Cage Path
-//         5: 'pacman-start'  // Pac-Man Starting Position
-//     };
-
-//     // Iterate over the rows and columns to build the grid
-//     PACMAN_MAZE.forEach((row, rowIndex) => {
-//         row.forEach((cellValue, colIndex) => {
-//             const cell = document.createElement('div');
-//             cell.classList.add('cell', cellClasses[cellValue]);
-
-//             // Special case for the ghost gate/entry point (row 12, columns 13 and 14 in 0-index)
-//             if (rowIndex === 12 && (colIndex === 13 || colIndex === 14)) {
-//                 // Remove base styling that might interfere with the gate
-//                 cell.classList.remove('ghost-cage', 'path', 'pellet', 'power-pellet'); 
-//                 cell.classList.add('path', 'ghost-gate'); // Add path and gate styling
-//             }
-
-//             mazeGrid.appendChild(cell);
-//         });
-//     });
-// });
-
-
 document.addEventListener('DOMContentLoaded', () => {
     const mazeGrid = document.getElementById('maze-grid');
 
@@ -114,8 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const cell = document.createElement('div');
             cell.classList.add('cell', cellClasses[cellValue]);
 
-            // Special case for the ghost gate/entry point (row 12, columns 12 and 13 in the new 0-index grid)
-            if (rowIndex === 12 && (colIndex === 12 || colIndex === 13)) {
+            // **FIXED LOGIC:** Special case for the ghost gate/entry point 
+            // Correctly targets Row 11 (index 11), Columns 13 and 14 (indices 13 and 14).
+            if (rowIndex === 11 && (colIndex === 13 || colIndex === 14)) {
                 // Remove base styling that might interfere with the gate
                 cell.classList.remove('ghost-cage', 'path', 'pellet', 'power-pellet'); 
                 cell.classList.add('path', 'ghost-gate'); // Add path and gate styling
