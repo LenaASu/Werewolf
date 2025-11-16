@@ -36,6 +36,8 @@ const PACMAN_MAZE = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 ];
 
+let currentMazeState = [];
+
 // ======================================================
 //                 GHOST INITIAL POSITIONS
 // ======================================================
@@ -55,16 +57,29 @@ const CHARACTERS = {
 const WALL = 0;
 const PATH = 1;
 const PELLET = 2;
-const POWER_PELLET = 3;
+const HEART_FRAGMENT = 3;
 const GHOST_CAGE = 4;
 const PACMAN_START = 5;
+
+let isWerewolfMode = false;
+let werewolfTimer = null;
+const WEREWOLF_DURATION = 8000; //8 seconds (8000 ms)
 
 let pacmanCurrentRow = 27;
 let pacmanCurrentCol = 13;
 
+// Store initial position for resetting after death
+const PACMAN_START_R = 27; 
+const PACMAN_START_C = 13;
+
 let score = 0;
 let lives = 3;
 let isPaused = false;
+
+// --- NEW GAME STATE VARIABLES ---
+let totalCollectables = 0;
+let remainingCollectables = 0;
+// --------------------------------
 
 let currentDirection = 'right';
 let nextDirection = 'right';
@@ -77,6 +92,8 @@ const GAME_SPEED_SECONDS = GAME_SPEED / 1000;
 
 let pacmanGraphicElement = null;
 let cellSize = 0;
+
+let hasGhostActivationScheduled = false;
 
 // ======================================================
 //                HELPER FUNCTIONS
@@ -92,6 +109,232 @@ function getGridCell(r, c) {
 function updateScoreboard() {
     document.getElementById("current-score").textContent = score;
     document.getElementById("lives").textContent = lives;
+}
+
+// --- Initialize/Re-Draw the Maze and Collectables ---
+// --- UPDATED: Function to Initialize/Re-Draw the Maze and Collectables ---
+function initializeMaze() {
+    const grid = document.getElementById("maze-grid");
+    
+    // 1. Clear the entire grid content before redrawing
+    grid.innerHTML = ''; 
+
+    // 2. Reset the current game state to a fresh copy of the original maze
+    //    We use .map() to create a true deep copy of the 2D array.
+    currentMazeState = PACMAN_MAZE.map(row => [...row]); 
+
+    // 3. Reset collectable counts
+    totalCollectables = 0;
+    
+    // 4. Loop through the currentMazeState to draw cells and count items
+    currentMazeState.forEach((row,r) => row.forEach((val,c) => {
+        if (val === PELLET || val === HEART_FRAGMENT) {
+            totalCollectables++;
+        }
+        
+        const cell = document.createElement("div");
+        const type = val === PACMAN_START ? PATH : val;
+
+        const mapping = {
+            0:"wall",
+            1:"path",
+            2:"pellet",
+            3:"heart-fragment",
+            4:"ghost-cage"
+        };
+
+        cell.classList.add("cell",mapping[type]);
+
+        // Gate tile
+        if (r === 12 && (c === 13 || c === 14)) {
+            cell.classList.add("ghost-gate");
+        }
+
+        grid.appendChild(cell);
+    }));
+
+    remainingCollectables = totalCollectables;
+    
+    // 5. Re-append Pac-Man and Ghost Graphics to the new grid
+    // grid.appendChild(pacmanGraphicElement);
+    if (pacmanGraphicElement) grid.appendChild(pacmanGraphicElement);
+    for (const name in CHARACTERS) {
+        grid.appendChild(CHARACTERS[name].element);
+    }
+}
+
+// ======================================================
+//             DEATH HANDLER 
+// ======================================================
+
+let isCurrentlyDying = false; // Prevents re-entry into the death sequence
+
+function handleRerirDeath() {
+    if (isCurrentlyDying || lives <= 0) {
+        return; // Already handling death or already dead
+    }
+    
+    isCurrentlyDying = true; // Set flag to block subsequent calls
+    
+    // 1. Immediately stop the game loop
+    stopGameLoop();
+
+    // 2. Decrement life and update scoreboard
+    lives--;
+    updateScoreboard(); 
+
+    // 3. Determine next action
+    if (lives <= 0) {
+        // Handle Game Over
+        setTimeout(gameOver, 500); 
+    } else {
+        // Reset characters and restart level/life
+        setTimeout(resetGame, 500); 
+    }
+}
+
+// ======================================================
+//                GAME STATE RESET/COLLISION
+// ======================================================
+
+function gameOver() {
+    stopGameLoop();
+    alert("⛓️‍💥 YOU ARE ARRESTED! (Rerir has run out of lives.)");
+    fullGameReset();
+
+}
+
+function checkWinCondition() {
+    if (remainingCollectables <= 0) {
+        stopGameLoop();
+        alert("🎉🐺 Rerir Werewolf!");
+        fullGameReset();
+    }
+}
+
+// --- NEW: Full Game Reset ---
+function fullGameReset() {
+    // 1. Reset all persistent state variables
+    score = 0;
+    lives = 3;
+    isPaused = false;
+    isCurrentlyDying = false;
+    ghostsActivated = false;
+    
+    // Cancel Werewolf mode if active
+    if (werewolfTimer) {
+        clearTimeout(werewolfTimer);
+        werewolfTimer = null;
+        isWerewolfMode = false;
+    }
+
+    // 2. Redraw the maze and reset collectables
+    initializeMaze(); 
+
+    // 3. Use resetGame() to place characters and start the game loop
+    // Note: resetGame already calls startGameLoop() and updates visuals.
+    resetGame();
+    
+    // Since this is a full reset, we need to ensure the ghost delay is active
+    delayGhostActivation(); 
+}
+
+function resetGame() {
+    // Reset Pac-Man position
+    pacmanCurrentRow = PACMAN_START_R;
+    pacmanCurrentCol = PACMAN_START_C;
+    currentDirection = 'right';
+    nextDirection = 'right';
+
+    // Reset Ghost positions and state
+    for (const name in CHARACTERS) {
+        const char = CHARACTERS[name];
+        // Reset to initial positions defined in CHARACTERS
+        const initial = {
+            traveler: { r:14, c:13, direction:'up', state:"escape" },
+            albedo:   { r:14, c:14, direction:'up', state:"escape" },
+            aino:     { r:14, c:12, direction:'up', state:"escape" },
+            flins:    { r:14, c:15, direction:'up', state:"escape" }
+        }[name];
+
+        char.r = initial.r;
+        char.c = initial.c;
+        char.direction = initial.direction;
+        char.state = initial.state;
+    }
+    
+    // Deactivate ghosts until Pac-Man moves again
+    ghostsActivated = false;
+    isPaused = false; 
+    isCurrentlyDying = false; // IMPORTANT: Reset the death flag
+
+    updatePacmanVisualPosition();
+    updateCharacterVisualPositions();
+    updateScoreboard();
+
+    // Automatically restart the game loop to resume movement
+    startGameLoop(); 
+    // delayGhostActivation();
+    // --- Delay Ghost Activation by 1 second ---
+    setTimeout(() => {
+        // Only activate if the game hasn't been paused or stopped/over
+        if (gameLoopInterval) {
+            ghostsActivated = true;
+        }
+    }, 1000); // 1000ms = 1 second delay
+}
+
+// ======================================================
+//                COLLISION LOGIC
+// ======================================================
+
+function checkCollision() {
+    let fatalCollisionDetected = false;
+
+    for (const name in CHARACTERS) {
+        const char = CHARACTERS[name];
+        
+        // Collision detected
+        if (char.r === pacmanCurrentRow && char.c === pacmanCurrentCol) {
+            
+            if (isWerewolfMode && char.state === "frightened") {
+                // Rerir EATS the enemy (Ghost-eat logic remains the same)
+                
+                score += 200; // EAT GHOST POINTS
+                updateScoreboard();
+
+                // Teleport the eaten ghost back to the starting cage
+                const initial = {
+                    traveler: { r:14, c:13, direction:'up', state:"escape" },
+                    albedo:   { r:14, c:14, direction:'up', state:"escape" },
+                    aino:     { r:14, c:12, direction:'up', state:"escape" },
+                    flins:    { r:14, c:15, direction:'up', state:"escape" }
+                }[name];
+
+                char.r = initial.r;
+                char.c = initial.c;
+                char.direction = initial.direction;
+                char.state = initial.state;
+                
+                warpCharacter(char.element, char.r, char.c);
+                
+                continue; // Continue checking other ghosts to see if Rerir eats them too
+
+            } else {
+                // Rerir is EATEN by the enemy (Normal collision)
+                fatalCollisionDetected = true;
+                // DO NOT PROCESS DEATH HERE, let the function finish and return.
+            }
+        }
+    }
+
+    // FINAL CHECK: If ANY fatal collision was detected, trigger the death handler once.
+    if (fatalCollisionDetected) {
+        handleRerirDeath();
+        return true;
+    }
+    
+    return false; // No fatal collision detected
 }
 
 // ======================================================
@@ -178,7 +421,9 @@ function checkNextMove(direction, r=pacmanCurrentRow, c=pacmanCurrentCol, entity
     if (nr < 0 || nr >= PACMAN_MAZE.length) return { valid:false, nextR:nr, nextC:nc };
     if (nc < 0 || nc >= maxCols) return { valid:false, nextR:nr, nextC:nc };
 
-    const tile = PACMAN_MAZE[nr][nc];
+    // const tile = PACMAN_MAZE[nr][nc];
+    // Use the mutable array for checking walls/path
+    const tile = currentMazeState[nr][nc];
 
     // Walls always block
     if (tile === WALL) return { valid:false, nextR:nr, nextC:nc };
@@ -187,13 +432,9 @@ function checkNextMove(direction, r=pacmanCurrentRow, c=pacmanCurrentCol, entity
     if (entity === "ghost") {
         const isCurrentGateTile = (r === 12 && (c === 13 || c === 14));
         const isTargetGateTile = (nr === 12 && (nc === 13 || nc === 14));
-        const isStartingInCage = (PACMAN_MAZE[r][c] === GHOST_CAGE);
-        const isTargetInCage = (PACMAN_MAZE[nr][nc] === GHOST_CAGE);
-        
-        // 1. Ghosts can always move within the cage tiles
-        if (isStartingInCage && isTargetInCage) {
-             return { valid:true, nextR:nr, nextC:nc, didWarp:false };
-        }
+        const isStartingInCage = (currentMazeState[r][c] === GHOST_CAGE);
+        const isTargetInCage = (currentMazeState[nr][nc] === GHOST_CAGE);
+        if (currentMazeState[nr][nc] === WALL) return { valid:false, nextR:nr, nextC:nc, didWarp:false };
 
         // 2. Ghosts can move from the cage (r=13, r=14) to the gate tiles (r=12)
         if (isStartingInCage && isTargetGateTile && direction === "up") {
@@ -235,12 +476,37 @@ function stopGameLoop() {
 }
 
 function togglePause() {
-    if (!gameLoopInterval) {
+    if (isPaused) {
+        // Unpausing/Starting the game
         isPaused = false;
         startGameLoop();
-        return;
+        // FIX: IMMEDIATE GHOST ACTIVATION ON START/RESUME (Initial Start)
+        ghostsActivated = true; 
+    } else {
+        // Pausing the game
+        isPaused = true;
+        stopGameLoop();
     }
-    isPaused = !isPaused;
+}
+
+// ======================================================
+//             GHOST ACTIVATION DELAY (NEW)
+// ======================================================
+
+function delayGhostActivation() {
+    // Prevent scheduling the delay multiple times
+    if (hasGhostActivationScheduled) return;
+
+    hasGhostActivationScheduled = true;
+    ghostsActivated = false; // Ensure ghosts stay off during the delay
+
+    setTimeout(() => {
+        // Only activate if the game is still running (not stopped/game over)
+        if (gameLoopInterval) {
+            ghostsActivated = true;
+        }
+        hasGhostActivationScheduled = false; // Reset the flag for the next death/reset
+    }, 1000); // 1000ms = 1 second delay
 }
 
 // ======================================================
@@ -364,9 +630,15 @@ function moveCharacters() {
 
     // Use this to determine if we need a standard visual update at the end
     let didWarpOccur = false;
+    let collisionDetected = false;  // Flag to stop movement loop on collision
 
     for (const name in CHARACTERS) {
         const char = CHARACTERS[name];
+
+        if (char.r === pacmanCurrentRow && char.c === pacmanCurrentCol) {
+            collisionDetected = checkCollision();
+            if (collisionDetected) return;
+        }
 
         // Apply speed multiplier
         char.tick += char.speedMultiplier;
@@ -439,22 +711,31 @@ function moveCharacters() {
         }
 
         // ================================
-        //       CHASE/SCATTER MODE
+        //       CHASE/SCATTER/FRIGHTENED MODE
         // ================================
         
         if (char.state === "chase" || char.state === "frightened") { 
-            // ... (rest of the chase/scatter/target logic remains the same)
-            // ... (Lines 438 to 476 remain the same)
-            
-            // Choose target based on role
-            if (char.role === "blinky")      target = getBlinkyTarget();
-            else if (char.role === "pinky")  target = getPinkyTarget();
-            else if (char.role === "inky")   target = getInkyTarget();
-            else if (char.role === "clyde")  target = getClydeTarget(char);
+            if (char.state === "frightened"){
+                const fleeCorners = [
+                    {r: 1, c: 1},
+                    {r: 1, c: 26},
+                    {r: 27, c: 1},
+                    {r: 27, c: 26}
+                ];
+                // Select a random corner
+                target = fleeCorners[Math.floor(Math.random() * fleeCorners.length)];
+            }
+            else {
+                // Choose target based on role
+                if (char.role === "blinky")      target = getBlinkyTarget();
+                else if (char.role === "pinky")  target = getPinkyTarget();
+                else if (char.role === "inky")   target = getInkyTarget();
+                else if (char.role === "clyde")  target = getClydeTarget(char);
 
-            // Line-of-sight override
-            if (hasLineOfSight(char.r,char.c,pacmanCurrentRow,pacmanCurrentCol)) {
-                target = { r:pacmanCurrentRow, c:pacmanCurrentCol };
+                // Line-of-sight override
+                if (hasLineOfSight(char.r,char.c,pacmanCurrentRow,pacmanCurrentCol)) {
+                    target = { r:pacmanCurrentRow, c:pacmanCurrentCol };
+                }
             }
 
             // Move one step toward target
@@ -489,6 +770,56 @@ function moveCharacters() {
     if (!didWarpOccur) {
         updateCharacterVisualPositions();
     }
+
+    checkCollision();
+}
+
+// ======================================================
+//             WEREWOLF MODE (HEART FRAGMENT)
+// ======================================================
+
+function activateWerewolfMode() {
+    // 1. Clear any existing timer to allow stacking/refreshing the duration
+    if (werewolfTimer) {
+        clearTimeout(werewolfTimer);
+    }
+
+    isWerewolfMode = true;
+
+    // 2. Set all ghosts to the "frightened" state and reverse their direction
+    for (const name in CHARACTERS) {
+        const char = CHARACTERS[name];
+        
+        // Only reverse direction if the ghost is currently in "chase" mode
+        if (char.state === "chase") {
+            // Reverse the ghost's current direction
+            if (char.direction === 'up') char.direction = 'down';
+            else if (char.direction === 'down') char.direction = 'up';
+            else if (char.direction === 'left') char.direction = 'right';
+            else if (char.direction === 'right') char.direction = 'left';
+            
+            // The next movement tick will execute the reversal
+        }
+        
+        char.state = "frightened";
+    }
+
+    // 3. Set a timer to end the mode
+    werewolfTimer = setTimeout(endWerewolfMode, WEREWOLF_DURATION);
+}
+
+function endWerewolfMode() {
+    isWerewolfMode = false;
+    werewolfTimer = null;
+
+    // Transition ghosts back to 'chase' mode
+    for (const name in CHARACTERS) {
+        const char = CHARACTERS[name];
+        // Only transition ghosts that are frightened back to chase
+        if (char.state === "frightened") {
+            char.state = "chase";
+        }
+    }
 }
 
 // =======================================================
@@ -512,25 +843,25 @@ function warpCharacter(element, newR, newC) {
 // ======================================================
 //                PAC-MAN MOVEMENT
 // ======================================================
-// CLEANED: Correctly handles position update and warp.
+// MODIFIED: Implemented robust turning logic, collection tracking, and win check.
 
 function movePacman() {
     if (isPaused) return;
 
-    let dirTry = currentDirection;
+    let moveDirection = currentDirection; // Use this for the actual move
     let step = { valid: false };
 
-    // 1. Attempt turn
+    // 1. Attempt turn (Turn Buffering Logic)
     if (nextDirection !== currentDirection) {
         step = checkNextMove(nextDirection);
         if (step.valid) {
             currentDirection = nextDirection;
-            dirTry = nextDirection;
+            moveDirection = nextDirection; // Update the move direction to the new direction
         }
     }
 
-    // 2. Attempt movement with the final direction
-    step = checkNextMove(dirTry);
+    // 2. Attempt movement with the final (or buffered) direction
+    step = checkNextMove(moveDirection); 
     if (!step.valid) return;
 
     // --- EXECUTE MOVE ---
@@ -539,19 +870,35 @@ function movePacman() {
     pacmanCurrentRow = step.nextR;
     pacmanCurrentCol = step.nextC;
 
-    // Activate ghosts on first move
-    if (!ghostsActivated) ghostsActivated = true;
+    // if (!ghostsActivated) ghostsActivated = true;
 
-    // Eating
-    const tile = PACMAN_MAZE[pacmanCurrentRow][pacmanCurrentCol];
-    if (tile === PELLET || tile === POWER_PELLET) {
-        PACMAN_MAZE[pacmanCurrentRow][pacmanCurrentCol] = PATH;
-        score += (tile === PELLET) ? 10 : 50;
+    // Eating & Collection Check
+    // const tile = PACMAN_MAZE[pacmanCurrentRow][pacmanCurrentCol];
+    // Eating & Collection Check
+    const tile = currentMazeState[pacmanCurrentRow][pacmanCurrentCol];
+    // FIX: Using HEART_FRAGMENT constant (which is 3) instead of POWER_PELLET which is not defined
+    if (tile === PELLET || tile === HEART_FRAGMENT) { 
+        // PACMAN_MAZE[pacmanCurrentRow][pacmanCurrentCol] = PATH;
+        // CRITICAL FIX: Update the mutable maze array
+        currentMazeState[pacmanCurrentRow][pacmanCurrentCol] = PATH;
+
+        // --- Werewolf Mode Logic ---
+        if (tile === HEART_FRAGMENT){
+            score += 50; 
+            activateWerewolfMode();
+        }
+        else{
+            score += 10;
+        }
+
+        // --- WIN/COLLECTION LOGIC ---
+        remainingCollectables--; 
+        checkWinCondition();
+        // --------------------------
 
         const cell = getGridCell(pacmanCurrentRow,pacmanCurrentCol);
-        // Ensure element exists before manipulating classes
         if (cell) {
-             cell.classList.remove("pellet","power-pellet");
+             cell.classList.remove("pellet","heart-fragment");
         }
     }
 
@@ -563,6 +910,7 @@ function movePacman() {
     }
     
     updateScoreboard();
+    checkCollision();
 }
 
 // ======================================================
@@ -571,20 +919,19 @@ function movePacman() {
 
 function handleKeyDown(e) {
     const key = e.key;
-
-    // Space = Pause
-    if (key === " ") {
-        e.preventDefault();
-        togglePause();
+    // Space = Pause/Start (triggers togglePause)
+    if (key === " ") { 
+        e.preventDefault(); 
+        togglePause(); 
         return;
-    }
+    } 
 
     // Movement keys
-    const dirs = {
-        "i":"up","I":"up",
-        "k":"down","K":"down",
-        "j":"left","J":"left",
-        "l":"right","L":"right"
+    const dirs = { 
+        "i":"up","I":"up", 
+        "k":"down","K":"down", 
+        "j":"left","J":"left", 
+        "l":"right","L":"right" 
     };
 
     if (dirs[key]) e.preventDefault();
@@ -593,11 +940,15 @@ function handleKeyDown(e) {
     if (dirs[key]) {
         nextDirection = dirs[key];
 
+        // This block handles the very first movement key press
         if (!gameLoopInterval) {
             const { valid } = checkNextMove(nextDirection);
             if (valid) {
                 currentDirection = nextDirection;
                 startGameLoop();
+                
+                // FIX: IMMEDIATE GHOST ACTIVATION FOR FIRST MOVEMENT-KEY START
+                ghostsActivated = true; 
             }
         }
     }
@@ -645,6 +996,7 @@ function handleTouchSwipe() {
             if (valid) {
                 currentDirection = dir;
                 startGameLoop();
+                delayGhostActivation();
             }
         }
     }, { passive:false });
@@ -681,27 +1033,8 @@ function resizeMaze() {
 document.addEventListener("DOMContentLoaded", () => {
     const grid = document.getElementById("maze-grid");
 
-    PACMAN_MAZE.forEach((row,r) => row.forEach((val,c) => {
-        const cell = document.createElement("div");
-        const type = val === PACMAN_START ? PATH : val;
-
-        const mapping = {
-            0:"wall",
-            1:"path",
-            2:"pellet",
-            3:"power-pellet",
-            4:"ghost-cage"
-        };
-
-        cell.classList.add("cell",mapping[type]);
-
-        // Gate tile
-        if (r === 12 && (c === 13 || c === 14)) {
-            cell.classList.add("ghost-gate");
-        }
-
-        grid.appendChild(cell);
-    }));
+    remainingCollectables = totalCollectables;
+    // -------------------------------
 
     // Create Pac-Man
     pacmanGraphicElement = document.createElement("div");
@@ -710,6 +1043,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Create ghosts
     createCharacterGraphics();
+
+    initializeMaze();
 
     // Input handlers
     document.addEventListener("keydown", handleKeyDown);

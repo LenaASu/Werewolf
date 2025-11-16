@@ -16,6 +16,7 @@
     --color-moon-3: #45858C;
     --color-moon-4: #60A69F;
     --color-moon-5: #D5F2EF;
+    
 }
 
 body {
@@ -109,7 +110,7 @@ body {
     height: 0.25rem;
 }
 
-.power-pellet-dot {
+.heart-fragment-dot {
     width: 0.5rem;
     height: 0.5rem;
 }
@@ -229,26 +230,21 @@ body {
     background-position: center;
 }
 
-
-/* --- PAC-MAN ROTATION STYLES (Set by JS) --- */
-
-/* .pacman-graphic.pacman-right {
-    transform: rotate(0deg); 
+.cell.heart-fragment {
+    /* Existing basic pellet/fragment styling */
+    background-color: transparent; /* Ensure background is transparent if needed */
+    border-radius: 50%; /* Remove if your PNG is not circular and you want sharp edges */
+    
+    /* --- NEW: Custom Heart Fragment PNG --- */
+    background-image: url('Elements/HeartFragment.png'); /* Path to your PNG image */
+    background-size: contain; /* Ensure the image fits within the cell */
+    background-repeat: no-repeat; /* Don't repeat the image */
+    background-position: center; /* Center the image in the cell */
+    
+    /* Adjust padding/margin if your image has transparent borders */
+    /* padding: 2px; */ 
+    /* margin: 2px; */ 
 }
-
-.pacman-graphic.pacman-left {
-    transform: rotate(180deg);
-}
-
-.pacman-graphic.pacman-up {
-    transform: rotate(-90deg); /* Or 270deg */
-/* }
-
-.pacman-graphic.pacman-down {
-    transform: rotate(90deg);
-} */ 
-
-
 
 /* Maze Cell Styling */
 .cell {
@@ -262,7 +258,7 @@ body {
     background-color: var(--color-moon-3);
 }
 
-.path, .pellet, .power-pellet, .ghost-cage, .pacman-start {
+.path, .pellet, .heart-fragment, .ghost-cage, .pacman-start {
     background-color: var(--color-moon-1);
 }
 
@@ -274,7 +270,7 @@ body {
     border-radius: 50%;
 }
 
-.power-pellet::after {
+.heart-fragment::after {
     content: '';
     width: 30%;
     height: 30%;
